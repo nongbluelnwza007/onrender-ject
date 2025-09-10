@@ -1,0 +1,9 @@
+.card {
+  background: rgba(31, 41, 55, 0.85);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+.label { font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem }
+.value { font-size: 2rem; font-weight: 800 }

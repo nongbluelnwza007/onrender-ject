@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 DHT Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-100">
+  <div class="max-w-6xl mx-auto p-6">
+    <header class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+      <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">🌡️ ESP32 DHT Dashboard</h1>
+        <p class="text-sm text-gray-400">Real-time temperature & humidity from ESP32</p>
+      </div>
+      <div class="space-x-4 text-sm">
+        <a class="text-blue-400 underline" href="/api/latest" target="_blank">/api/latest</a>
+        <a class="text-blue-400 underline" href="/api/history" target="_blank">/api/history</a>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="card">
+        <div class="label">อุณหภูมิ (°C)</div>
+        <div id="tempVal" class="value">—</div>
+      </div>
+      <div class="card">
+        <div class="label">ความชื้น (%)</div>
+        <div id="humVal" class="value">—</div>
+      </div>
+      <div class="card">
+        <div class="label">อัปเดตล่าสุด</div>
+        <div id="timeVal" class="value">—</div>
+      </div>
+    </section>
+
+    <section class="bg-gray-900/70 rounded-2xl p-4 shadow-2xl ring-1 ring-white/5">
+      <canvas id="lineChart" height="120"></canvas>
+    </section>
+
+    <footer class="mt-8 text-center text-sm text-gray-400">
+      Deploy on Render.com • Built with Express + Chart.js
+    </footer>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
