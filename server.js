@@ -54,6 +54,8 @@ app.get("/api/history", (req, res) => {
   res.json(history);
 });
 
+app.get("/healthz", (req, res) => res.send("ok"));
+
 app.listen(PORT, () => {
   console.log(`Server running on :${PORT}`);
 });
