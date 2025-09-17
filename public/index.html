@@ -3,30 +3,245 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ESP32 DHT Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-  <style>main{max-width:980px;margin:auto}</style>
+  <title>ESP32 DHT • Dashboard</title>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0e1117; --card:#151a23; --muted:#a9b0c1; --text:#e6eaf2;
+      --brand:#7c8cff; --temp:#56b0ff; --humi:#ff6b9b; --ok:#2ecc71;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text); background:
+        radial-gradient(1200px 800px at 120% -10%, #1b2340 0%, rgba(27,35,64,0) 55%),
+        radial-gradient(900px 700px at -20% 110%, #1a2a3b 0%, rgba(26,42,59,0) 60%),
+        var(--bg);
+    }
+    .wrap{max-width:1100px; margin:56px auto; padding:0 20px}
+    header{display:flex; align-items:center; justify-content:space-between; margin-bottom:24px}
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{
+      width:42px; height:42px; border-radius:12px;
+      background:linear-gradient(135deg,var(--brand),#9b7cff);
+      display:grid; place-items:center; box-shadow:var(--shadow)
+    }
+    .logo span{font-weight:800; color:white}
+    .brand h1{font-size:22px; margin:0}
+    .sub{color:var(--muted); font-size:13px; margin-top:4px}
+
+    .links a{
+      color:var(--muted); text-decoration:none; font-size:13px; margin-left:14px;
+      border:1px solid rgba(255,255,255,.08); padding:8px 10px; border-radius:10px;
+      backdrop-filter: blur(6px);
+    }
+    .links a:hover{color:white; border-color:rgba(255,255,255,.22)}
+
+    .grid{
+      display:grid; grid-template-columns: repeat(12, 1fr); gap:18px; margin-top:8px;
+    }
+    .card{
+      grid-column: span 4;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:18px 18px 16px;
+      min-height:110px;
+    }
+    .kpi-label{color:var(--muted); font-size:13px}
+    .kpi-value{font-size:34px; font-weight:800; letter-spacing:.3px; margin-top:6px}
+    .kpi-foot{font-size:12px; color:var(--muted); margin-top:8px}
+
+    .card.chart{
+      grid-column: span 12;
+      padding:18px; height:420px;
+    }
+
+    footer{
+      margin:30px 0 20px; text-align:center; color:var(--muted); font-size:12px
+    }
+
+    /* badges */
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; font-size:12px;
+      background: rgba(124,140,255,.12); color:#cfd4ff; border:1px solid rgba(124,140,255,.25)
+    }
+
+    @media (max-width: 900px){
+      .card{grid-column: span 12}
+      .card.chart{height:380px}
+    }
+  </style>
 </head>
 <body>
-<main>
-  <h3>ESP32 DHT Dashboard</h3>
-  <p>
-    <a href="/api/latest" target="_blank">/api/latest</a> •
-    <a href="/api/history" target="_blank">/api/history</a>
-  </p>
-  <article>
-    <p id="reading">Loading…</p>
-  </article>
-</main>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo"><span>🌡️</span></div>
+        <div>
+          <h1>ESP32 DHT • Dashboard</h1>
+          <div class="sub">Real-time temperature & humidity from ESP32</div>
+        </div>
+      </div>
+      <div class="links">
+        <a href="/api/latest" target="_blank">/api/latest</a>
+        <a href="/api/history" target="_blank">/api/history</a>
+        <a id="status" class="badge" href="/healthz" target="_blank">● connecting…</a>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="kpi-label">อุณหภูมิ (°C)</div>
+        <div id="temp" class="kpi-value">—</div>
+        <div class="kpi-foot" id="temp-foot">—</div>
+      </article>
+
+      <article class="card">
+        <div class="kpi-label">ความชื้น (%)</div>
+        <div id="humi" class="kpi-value">—</div>
+        <div class="kpi-foot" id="humi-foot">—</div>
+      </article>
+
+      <article class="card">
+        <div class="kpi-label">อัปเดตล่าสุด</div>
+        <div id="updated" class="kpi-value">—</div>
+        <div class="kpi-foot" id="count-foot">—</div>
+      </article>
+
+      <article class="card chart">
+        <canvas id="chart"></canvas>
+      </article>
+    </section>
+
+    <footer>
+      Deploy on <a href="https://render.com" target="_blank" style="color:#9fb1ff;text-decoration:none">Render</a> •
+      Data in <span style="color:#9fb1ff">MongoDB</span> •
+      Built with <span style="color:#9fb1ff">Express</span> + <span style="color:#9fb1ff">Chart.js</span>
+    </footer>
+  </div>
+
 <script>
-async function refresh(){
-  const r = await fetch('/api/latest'); const j = await r.json();
-  const el = document.getElementById('reading');
-  if(!j){ el.textContent = 'No data yet'; return; }
-  const d = new Date(j.ts); el.textContent =
-    `Temp ${j.t} °C | Humidity ${j.h} % at ${d.toLocaleString()}`;
+const els = {
+  temp: document.getElementById('temp'),
+  humi: document.getElementById('humi'),
+  updated: document.getElementById('updated'),
+  tempFoot: document.getElementById('temp-foot'),
+  humiFoot: document.getElementById('humi-foot'),
+  countFoot: document.getElementById('count-foot'),
+  status: document.getElementById('status'),
+};
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleString(undefined,{hour12:false});
 }
-setInterval(refresh, 3000); refresh();
+
+async function ping(){
+  try{
+    const r = await fetch('/healthz');
+    if(r.ok){ els.status.textContent = '● healthy'; els.status.style.background='rgba(46,204,113,.15)'; els.status.style.color='#baf6d0'; }
+    else { els.status.textContent = '● error'; els.status.style.background='rgba(231,76,60,.15)'; els.status.style.color='#ffd2d2'; }
+  }catch{
+    els.status.textContent = '● offline'; els.status.style.background='rgba(231,76,60,.15)'; els.status.style.color='#ffd2d2';
+  }
+}
+ping(); setInterval(ping, 10000);
+
+/* --------- Chart --------- */
+const ctx = document.getElementById('chart');
+const gridColor = 'rgba(255,255,255,.08)';
+const tempColor = getComputedStyle(document.documentElement).getPropertyValue('--temp').trim() || '#56b0ff';
+const humiColor = getComputedStyle(document.documentElement).getPropertyValue('--humi').trim() || '#ff6b9b';
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Temperature (°C)', data: [], borderColor: tempColor, tension: .35, pointRadius: 0, borderWidth: 2 },
+      { label: 'Humidity (%)', data: [], borderColor: humiColor, tension: .35, pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode:'index', intersect:false },
+    plugins: {
+      legend: { labels:{ color:'#cdd4e0', boxWidth:10 } },
+      tooltip: { backgroundColor:'rgba(21,26,35,.95)', borderColor:'rgba(255,255,255,.1)', borderWidth:1 }
+    },
+    scales: {
+      x: { ticks:{ color:'#9aa3b2' }, grid:{ color:gridColor } },
+      y: { ticks:{ color:'#9aa3b2' }, grid:{ color:gridColor } }
+    }
+  }
+});
+
+function updateCards(latest, count){
+  if(!latest){ els.temp.textContent='—'; els.humi.textContent='—'; els.updated.textContent='—'; return; }
+  els.temp.textContent = `${latest.t.toFixed(1)}°`;
+  els.humi.textContent = `${latest.h.toFixed(1)}%`;
+  els.updated.textContent = fmtTime(latest.ts);
+  els.tempFoot.textContent = 'ค่าเรียลไทม์จาก ESP32';
+  els.humiFoot.textContent = 'ค่าเรียลไทม์จาก ESP32';
+  els.countFoot.textContent = `ทั้งหมด ${count} รายการ`;
+}
+
+async function loadHistory(){
+  const r = await fetch('/api/history?limit=200');
+  const rows = await r.json();
+  const labels = rows.map(x => new Date(x.ts).toLocaleTimeString(undefined,{hour12:false}));
+  const temps  = rows.map(x => x.t);
+  const humis  = rows.map(x => x.h);
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = temps;
+  chart.data.datasets[1].data = humis;
+  chart.update();
+
+  updateCards(rows[rows.length-1], rows.length);
+}
+
+async function tickLatest(){
+  try{
+    const r = await fetch('/api/latest'); const j = await r.json();
+    if(!j) return;
+    const lastLabel = chart.data.labels[chart.data.labels.length-1];
+    const newLabel  = new Date(j.ts).toLocaleTimeString(undefined,{hour12:false});
+    // ป้องกันซ้ำเวลา poll
+    if(lastLabel !== newLabel){
+      chart.data.labels.push(newLabel);
+      chart.data.datasets[0].data.push(j.t);
+      chart.data.datasets[1].data.push(j.h);
+      // จำกัดจุดข้อมูลให้ลื่น (เช่น 240 จุด ~ ครึ่งชั่วโมงที่อัปเดต 7–8s)
+      const cap = 240;
+      if(chart.data.labels.length > cap){
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(d => d.data.shift());
+      }
+      chart.update();
+    }
+    // อัปเดตการ์ด
+    const count = chart.data.labels.length;
+    updateCards(j, count);
+  }catch(e){ /* เงียบ ๆ */ }
+}
+
+loadHistory();          // โหลดย้อนหลังตอนเปิดหน้า
+setInterval(tickLatest, 7000); // ดึงค่าใหม่ทุก 7 วิ
 </script>
 </body>
 </html>
